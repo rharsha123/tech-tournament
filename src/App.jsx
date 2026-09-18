@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./AuthContext";
-import Navbar from "./components/Navbar"; // Matches the Navbar component import properly
+import Navbar from "./components/Navbar";
 import PublicView from "./pages/PublicView";
 import AdminDashboard from "./pages/AdminDashboard";
 import Login from "./pages/Login";
@@ -20,6 +20,8 @@ function usePath() {
 function MainContent() {
   const path = usePath();
   const { currentUser, logout } = useAuth();
+  
+  // Check if current URL path starts with /admin
   const isAdminRoute = path.startsWith("/admin");
 
   if (isAdminRoute) {

@@ -1,61 +1,76 @@
-import React from "react";
-import { Trophy, LogIn, LogOut, LayoutDashboard } from "lucide-react";
-import { useAuth } from "../AuthContext";
+import React, { useState } from "react";
+import { Trophy, Menu, X } from "lucide-react";
 
-export default function Navbar({ activeTab, setActiveTab }) {
-  const { currentUser, logout } = useAuth();
+export default function Navbar() {
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <nav className="bg-snb-dark text-white border-b-2 border-snb-accent shadow-md sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-6 py-3.5 flex justify-between items-center">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
         {/* Brand Logo */}
-        <div 
-          className="flex items-center space-x-3 cursor-pointer group"
-          onClick={() => setActiveTab("public")}
-        >
-          <div className="bg-snb-accent p-2 rounded-lg text-snb-dark group-hover:scale-105 transition">
-            <Trophy className="w-6 h-6" />
+        <a href="/" className="flex items-center space-x-2 sm:space-x-3 group min-w-0">
+          <div className="bg-snb-accent p-1.5 sm:p-2 rounded-lg text-snb-dark group-hover:scale-105 transition shrink-0">
+            <Trophy className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <span className="text-xl font-extrabold tracking-tight text-white block">Tech Tournaments</span>
-            <span className="text-[10px] text-snb-accent font-semibold tracking-widest uppercase block -mt-1">Sports Portal</span>
+          <div className="min-w-0">
+            <span className="text-base sm:text-xl font-extrabold tracking-tight text-white block truncate">Tech Tournaments</span>
+            <span className="text-[9px] sm:text-[10px] text-snb-accent font-semibold tracking-widest uppercase block -mt-1">Sports Portal</span>
           </div>
+        </a>
+
+        {/* Desktop Links */}
+        <div className="hidden md:flex items-center space-x-6 text-sm font-semibold">
+          <a href="/" className="hover:text-snb-accent transition-colors">Home</a>
+          <a href="#matches" className="hover:text-snb-accent transition-colors">Matches</a>
+          <a href="#scores" className="hover:text-snb-accent transition-colors">Scores</a>
+          <a href="#teams" className="hover:text-snb-accent transition-colors">Teams</a>
         </div>
 
-        {/* Links & Auth */}
-        <div className="flex items-center space-x-3">
-          <button 
-            onClick={() => setActiveTab("public")}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'public' ? 'bg-snb-green text-snb-accent border border-snb-accent/40' : 'hover:bg-snb-green/50 text-slate-200'}`}
+        {/* Mobile Toggle Button */}
+        <div className="md:hidden flex items-center">
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="text-white hover:text-snb-accent focus:outline-none p-2 rounded-md transition-colors"
+            aria-label="Toggle Menu"
           >
-            Matches & Scores
+            {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
-
-          {currentUser ? (
-            <>
-              <button 
-                onClick={() => setActiveTab("admin")}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'admin' ? 'bg-snb-green text-snb-accent border border-snb-accent/40' : 'hover:bg-snb-green/50 text-slate-200'}`}
-              >
-                <LayoutDashboard className="w-4 h-4 text-snb-accent" /> Admin Panel
-              </button>
-              <button 
-                onClick={logout}
-                className="flex items-center gap-1 bg-red-700 hover:bg-red-800 px-3.5 py-2 rounded-lg text-xs font-bold text-white transition"
-              >
-                <LogOut className="w-4 h-4" /> Logout
-              </button>
-            </>
-          ) : (
-            <button 
-              onClick={() => setActiveTab("login")}
-              className="flex items-center gap-1.5 bg-snb-accent hover:bg-snb-goldLight text-snb-dark px-4 py-2 rounded-lg text-xs font-extrabold transition shadow-sm"
-            >
-              <LogIn className="w-4 h-4" /> Admin Login
-            </button>
-          )}
         </div>
       </div>
+
+      {/* Mobile Menu Dropdown */}
+      {isOpen && (
+        <div className="md:hidden bg-snb-dark border-t border-slate-800 px-4 pt-3 pb-5 space-y-2 shadow-inner">
+          <a 
+            href="/" 
+            onClick={() => setIsOpen(false)}
+            className="block px-3 py-2 rounded-md text-base font-medium hover:bg-slate-800 hover:text-snb-accent transition-colors"
+          >
+            Home
+          </a>
+          <a 
+            href="#matches" 
+            onClick={() => setIsOpen(false)}
+            className="block px-3 py-2 rounded-md text-base font-medium hover:bg-slate-800 hover:text-snb-accent transition-colors"
+          >
+            Matches
+          </a>
+          <a 
+            href="#scores" 
+            onClick={() => setIsOpen(false)}
+            className="block px-3 py-2 rounded-md text-base font-medium hover:bg-slate-800 hover:text-snb-accent transition-colors"
+          >
+            Scores
+          </a>
+          <a 
+            href="#teams" 
+            onClick={() => setIsOpen(false)}
+            className="block px-3 py-2 rounded-md text-base font-medium hover:bg-slate-800 hover:text-snb-accent transition-colors"
+          >
+            Teams
+          </a>
+        </div>
+      )}
     </nav>
   );
 }
