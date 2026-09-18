@@ -29,10 +29,11 @@ import {
   Minus,
   Camera,
   Video,
-  GitCommit
+  GitCommit,
+  LogOut
 } from "lucide-react";
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ onLogout }) {
   const [activeTab, setActiveTab] = useState("tournaments");
   const [activeTournamentId, setActiveTournamentId] = useState("");
   const [loading, setLoading] = useState(true);
@@ -103,20 +104,43 @@ export default function AdminDashboard() {
     t.name?.toLowerCase().includes(tournamentSearch.toLowerCase())
   );
 
-  // Camera Handling & Image Compression
+  // Camera Handling & Image Compression with Mobile Webkit Support
   const startCamera = async (targetType, targetId = null, targetName = "") => {
     setCameraModal({ open: true, targetType, targetId, targetName });
+    
+    // Check for Secure Context / getUserMedia availability on mobile browsers
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert("Camera API is not supported or requires a secure context (HTTPS) on this mobile browser.");
+      setCameraModal({ open: false, targetType: null, targetId: null, targetName: "" });
+      return;
+    }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      if (videoRef.current) videoRef.current.srcObject = stream;
+      const constraints = {
+        video: { 
+          facingMode: "environment", // Prefer back camera on mobile devices
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        try {
+          await videoRef.current.play();
+        } catch (playErr) {
+          console.warn("Autoplay prevented or delayed:", playErr);
+        }
+      }
     } catch (err) {
-      alert("Unable to access camera. Please check permissions.");
+      console.error("Camera access error:", err);
+      alert("Unable to access camera. Please grant camera permissions in your mobile browser settings.");
       setCameraModal({ open: false, targetType: null, targetId: null, targetName: "" });
     }
   };
 
   const capturePhoto = async () => {
-    if (!currentTournament) return;
+    if (!currentTournament || !videoRef.current) return;
 
     const canvas = document.createElement("canvas");
     const video = videoRef.current;
@@ -130,7 +154,6 @@ export default function AdminDashboard() {
     const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.7);
 
     const { targetType, targetId } = cameraModal;
-    const groups = currentTournament.groups || [];
 
     try {
       if (targetType === "tournament") {
@@ -138,7 +161,7 @@ export default function AdminDashboard() {
           photos: arrayUnion(compressedDataUrl)
         });
       } else if (targetType === "group") {
-        const updatedGroups = groups.map(g => {
+        const updatedGroups = currentTournament.groups.map(g => {
           if (g.id === targetId) {
             return { ...g, photos: [...(g.photos || []), compressedDataUrl] };
           }
@@ -146,7 +169,7 @@ export default function AdminDashboard() {
         });
         await updateDoc(doc(db, "tournaments", currentTournament.id), { groups: updatedGroups });
       } else if (targetType === "team") {
-        const updatedGroups = groups.map(g => ({
+        const updatedGroups = currentTournament.groups.map(g => ({
           ...g,
           teams: (g.teams || []).map(tm => {
             if (tm.id === targetId) {
@@ -157,7 +180,7 @@ export default function AdminDashboard() {
         }));
         await updateDoc(doc(db, "tournaments", currentTournament.id), { groups: updatedGroups });
       } else if (targetType === "player") {
-        const updatedGroups = groups.map(g => ({
+        const updatedGroups = currentTournament.groups.map(g => ({
           ...g,
           teams: (g.teams || []).map(tm => ({
             ...tm,
@@ -187,7 +210,7 @@ export default function AdminDashboard() {
 
   const handleDeleteGroupPhoto = async (groupId, photoUrl) => {
     if (!window.confirm("Delete this photo?")) return;
-    const updatedGroups = (currentTournament.groups || []).map(g => {
+    const updatedGroups = currentTournament.groups.map(g => {
       if (g.id === groupId) {
         return { ...g, photos: (g.photos || []).filter(p => p !== photoUrl) };
       }
@@ -198,7 +221,7 @@ export default function AdminDashboard() {
 
   const handleDeleteTeamPhoto = async (teamId, photoUrl) => {
     if (!window.confirm("Delete this photo?")) return;
-    const updatedGroups = (currentTournament.groups || []).map(g => ({
+    const updatedGroups = currentTournament.groups.map(g => ({
       ...g,
       teams: (g.teams || []).map(tm => {
         if (tm.id === teamId) {
@@ -212,7 +235,7 @@ export default function AdminDashboard() {
 
   const handleDeletePlayerPhoto = async (playerId, photoUrl) => {
     if (!window.confirm("Delete this photo?")) return;
-    const updatedGroups = (currentTournament.groups || []).map(g => ({
+    const updatedGroups = currentTournament.groups.map(g => ({
       ...g,
       teams: (g.teams || []).map(tm => ({
         ...tm,
@@ -231,6 +254,7 @@ export default function AdminDashboard() {
     if (videoRef.current && videoRef.current.srcObject) {
       const tracks = videoRef.current.srcObject.getTracks();
       tracks.forEach(track => track.stop());
+      videoRef.current.srcObject = null;
     }
     setCameraModal({ open: false, targetType: null, targetId: null, targetName: "" });
   };
@@ -291,7 +315,7 @@ export default function AdminDashboard() {
   const handleAddTeam = async (e) => {
     e.preventDefault();
     if (!selectedGroupId || !newTeamName.trim() || !currentTournament) return;
-    const updatedGroups = (currentTournament.groups || []).map((g) => {
+    const updatedGroups = currentTournament.groups.map((g) => {
       if (g.id === selectedGroupId) {
         return {
           ...g,
@@ -314,7 +338,7 @@ export default function AdminDashboard() {
   const handleAddPlayer = async (e) => {
     e.preventDefault();
     if (!selectedTeamId || !newPlayerName.trim() || !currentTournament) return;
-    const updatedGroups = (currentTournament.groups || []).map((g) => ({
+    const updatedGroups = currentTournament.groups.map((g) => ({
       ...g,
       teams: (g.teams || []).map((tm) => {
         if (tm.id === selectedTeamId) {
@@ -329,15 +353,15 @@ export default function AdminDashboard() {
 
   const handleDeleteGroup = async (groupId) => {
     if (!window.confirm("Delete this group and all its teams?")) return;
-    const updatedGroups = (currentTournament.groups || []).filter(g => g.id !== groupId);
+    const updatedGroups = currentTournament.groups.filter(g => g.id !== groupId);
     await updateDoc(doc(db, "tournaments", currentTournament.id), { groups: updatedGroups });
   };
 
   const handleDeleteTeam = async (groupId, teamId) => {
     if (!window.confirm("Delete this team?")) return;
-    const updatedGroups = (currentTournament.groups || []).map(g => {
+    const updatedGroups = currentTournament.groups.map(g => {
       if (g.id === groupId) {
-        return { ...g, teams: (g.teams || []).filter(t => t.id !== teamId) };
+        return { ...g, teams: g.teams.filter(t => t.id !== teamId) };
       }
       return g;
     });
@@ -346,13 +370,13 @@ export default function AdminDashboard() {
 
   const handleDeletePlayer = async (groupId, teamId, playerId) => {
     if (!window.confirm("Delete this player?")) return;
-    const updatedGroups = (currentTournament.groups || []).map(g => {
+    const updatedGroups = currentTournament.groups.map(g => {
       if (g.id === groupId) {
         return {
           ...g,
-          teams: (g.teams || []).map(tm => {
+          teams: g.teams.map(tm => {
             if (tm.id === teamId) {
-              return { ...tm, players: (tm.players || []).filter(p => p.id !== playerId) };
+              return { ...tm, players: tm.players.filter(p => p.id !== playerId) };
             }
             return tm;
           })
@@ -368,10 +392,10 @@ export default function AdminDashboard() {
     if (!fixtureData.teamA || !fixtureData.teamB) {
       alert("Please select both teams.");
       return;
-   }
+    }
 
-    const groupAObj = (currentTournament.groups || []).find(g => g.id === fixtureData.groupAId);
-    const groupBObj = (currentTournament.groups || []).find(g => g.id === fixtureData.groupBId);
+    const groupAObj = currentTournament.groups.find(g => g.id === fixtureData.groupAId);
+    const groupBObj = currentTournament.groups.find(g => g.id === fixtureData.groupBId);
 
     await addDoc(collection(db, "matches"), {
       tournamentId: currentTournament.id,
@@ -437,6 +461,7 @@ export default function AdminDashboard() {
   const qfMatches = tournamentMatches.filter(m => m.stage === "Quarter-Final");
   const sfMatches = tournamentMatches.filter(m => m.stage === "Semi-Final");
   const finalMatches = tournamentMatches.filter(m => m.stage === "Final");
+  const leagueMatches = tournamentMatches.filter(m => m.stage === "League" || !m.stage);
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-slate-100 font-sans text-slate-800">
@@ -470,30 +495,31 @@ export default function AdminDashboard() {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden pb-16 md:pb-0">
-        <header className="bg-white shadow-2xs border-b border-slate-200 px-5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <header className="bg-white shadow-2xs border-b border-slate-200 px-3 sm:px-5 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h1 className="text-base font-black text-slate-900 tracking-tight">Tournament Administration</h1>
+            <h1 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">Tournament Administration</h1>
             <p className="text-[10px] text-slate-500">Live Scoring & Hierarchy Management Console</p>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             {currentTournament && (
               <button 
                 onClick={() => startCamera("tournament", null, currentTournament.name)} 
-                className="bg-slate-900 text-white px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-slate-800 flex items-center space-x-1 shadow-2xs"
+                className="bg-slate-900 text-white px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold hover:bg-slate-800 flex items-center space-x-1 shadow-2xs shrink-0"
               >
                 <Camera size={14} className="text-emerald-400" />
-                <span>Capture Tournament Photo</span>
+                <span className="hidden sm:inline">Capture Tournament Photo</span>
+                <span className="sm:hidden">Photo</span>
               </button>
             )}
 
             {tournaments.length > 0 && (
-              <div className="flex items-center space-x-2 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200">
-                <span className="text-[10px] font-black uppercase text-slate-400">Active:</span>
+              <div className="flex items-center gap-2 bg-slate-50 px-3 py-1 rounded-xl border border-slate-200 min-w-0 max-w-full">
+                <span className="text-[10px] font-black uppercase text-slate-400 shrink-0">Active:</span>
                 <select
                   value={activeTournamentId}
                   onChange={(e) => setActiveTournamentId(e.target.value)}
-                  className="bg-transparent font-bold text-slate-800 text-xs focus:outline-none cursor-pointer"
+                  className="bg-transparent font-bold text-slate-800 text-xs focus:outline-none cursor-pointer min-w-0 max-w-[160px] sm:max-w-[220px] truncate"
                 >
                   {tournaments.map((t) => (
                     <option key={t.id} value={t.id}>{t.name} ({t.sport})</option>
@@ -501,26 +527,43 @@ export default function AdminDashboard() {
                 </select>
               </div>
             )}
+
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-600 px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold flex items-center space-x-1 shrink-0 border border-slate-200"
+              >
+                <LogOut size={14} />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            )}
           </div>
         </header>
 
         <main className="p-4 sm:p-5 flex-1 overflow-y-auto max-w-7xl w-full mx-auto space-y-5">
           {cameraModal.open && (
-            <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4">
+            <div className="fixed inset-0 bg-slate-950/85 z-50 flex items-center justify-center p-4">
               <div className="bg-white rounded-2xl p-4 max-w-md w-full space-y-3 shadow-2xl">
                 <div className="flex justify-between items-center">
                   <h3 className="font-bold text-sm text-slate-900 flex items-center space-x-1.5">
                     <Camera size={16} className="text-emerald-600" />
                     <span>Capture Photo ({cameraModal.targetName || "General"})</span>
                   </h3>
-                  <button onClick={stopCamera} className="text-slate-400 hover:text-slate-700"><X size={18}/></button>
+                  <button onClick={stopCamera} className="text-slate-400 hover:text-slate-700 p-1"><X size={18}/></button>
                 </div>
-                <div className="bg-black rounded-xl overflow-hidden aspect-video flex items-center justify-center">
-                  <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover"></video>
+                <div className="bg-black rounded-xl overflow-hidden aspect-video flex items-center justify-center relative">
+                  {/* Added playsInline, autoPlay, and muted for mandatory mobile WebKit support */}
+                  <video 
+                    ref={videoRef} 
+                    autoPlay 
+                    playsInline 
+                    muted 
+                    className="w-full h-full object-cover"
+                  ></video>
                 </div>
                 <button 
                   onClick={capturePhoto} 
-                  className="w-full bg-emerald-600 text-white py-2 rounded-xl font-bold text-xs hover:bg-emerald-700 transition"
+                  className="w-full bg-emerald-600 text-white py-2.5 rounded-xl font-bold text-xs hover:bg-emerald-700 transition shadow-md"
                 >
                   Snap & Save Photo
                 </button>
@@ -676,14 +719,14 @@ export default function AdminDashboard() {
                   <div className="space-y-4">
                     {currentTournament.groups.map(group => (
                       <div key={group.id} className="border border-slate-200 p-3.5 rounded-xl bg-slate-50/50 space-y-3">
-                        <div className="flex items-center justify-between border-b pb-2">
-                          <span className="font-bold text-xs text-slate-900 flex items-center space-x-1.5">
-                            <Layers size={14} className="text-emerald-600"/> <span>{group.name}</span>
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
+                          <span className="font-bold text-xs text-slate-900 flex items-center space-x-1.5 min-w-0">
+                            <Layers size={14} className="text-emerald-600 shrink-0"/> <span className="truncate">{group.name}</span>
                           </span>
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-2 shrink-0">
                             <button 
                               onClick={() => startCamera("group", group.id, group.name)}
-                              className="bg-emerald-600 text-white px-2 py-1 rounded-lg text-[10px] font-bold hover:bg-emerald-700 flex items-center space-x-1"
+                              className="bg-emerald-600 text-white px-2.5 py-1 rounded-lg text-[10px] font-bold hover:bg-emerald-700 flex items-center space-x-1"
                             >
                               <Camera size={12}/>
                               <span>Group Photo</span>
@@ -695,11 +738,11 @@ export default function AdminDashboard() {
                         </div>
 
                         {group.photos && group.photos.length > 0 && (
-                          <div className="grid grid-cols-4 gap-2">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             {group.photos.map((ph, idx) => (
                               <div key={idx} className="relative group rounded-lg overflow-hidden aspect-video border bg-slate-100">
                                 <img src={ph} alt="Group" className="w-full h-full object-cover"/>
-                                <button onClick={() => handleDeleteGroupPhoto(group.id, ph)} className="absolute top-0.5 right-0.5 bg-red-600 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100">
+                                <button onClick={() => handleDeleteGroupPhoto(group.id, ph)} className="absolute top-0.5 right-0.5 bg-red-600 text-white p-1 rounded-full shadow">
                                   <Trash2 size={10}/>
                                 </button>
                               </div>
@@ -713,14 +756,14 @@ export default function AdminDashboard() {
                           <div className="space-y-3 pl-2">
                             {group.teams.map(team => (
                               <div key={team.id} className="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <p className="text-xs font-extrabold text-slate-800">{team.name} <span className="text-[10px] font-normal text-slate-500">(Capt: {team.captain})</span></p>
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-extrabold text-slate-800 truncate">{team.name} <span className="text-[10px] font-normal text-slate-500">(Capt: {team.captain})</span></p>
                                   </div>
-                                  <div className="flex items-center space-x-2">
+                                  <div className="flex items-center space-x-2 shrink-0">
                                     <button 
                                       onClick={() => startCamera("team", team.id, team.name)}
-                                      className="bg-slate-900 text-white px-2 py-1 rounded-lg text-[10px] font-bold hover:bg-slate-800 flex items-center space-x-1"
+                                      className="bg-slate-900 text-white px-2.5 py-1 rounded-lg text-[10px] font-bold hover:bg-slate-800 flex items-center space-x-1"
                                     >
                                       <Camera size={12} className="text-emerald-400"/>
                                       <span>Team Photo</span>
@@ -732,11 +775,11 @@ export default function AdminDashboard() {
                                 </div>
 
                                 {team.photos && team.photos.length > 0 && (
-                                  <div className="grid grid-cols-4 gap-2 pt-1">
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
                                     {team.photos.map((ph, idx) => (
                                       <div key={idx} className="relative group rounded-lg overflow-hidden aspect-video border bg-slate-100">
                                         <img src={ph} alt="Team" className="w-full h-full object-cover"/>
-                                        <button onClick={() => handleDeleteTeamPhoto(team.id, ph)} className="absolute top-0.5 right-0.5 bg-red-600 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100">
+                                        <button onClick={() => handleDeleteTeamPhoto(team.id, ph)} className="absolute top-0.5 right-0.5 bg-red-600 text-white p-1 rounded-full shadow">
                                           <Trash2 size={10}/>
                                         </button>
                                       </div>
@@ -758,12 +801,12 @@ export default function AdminDashboard() {
                                           <div className="flex items-center space-x-1.5">
                                             <button 
                                               onClick={() => startCamera("player", player.id, player.name)}
-                                              className="bg-emerald-600 text-white px-1.5 py-0.5 rounded text-[9px] font-bold hover:bg-emerald-700 flex items-center space-x-0.5"
+                                              className="bg-emerald-600 text-white px-2 py-1 rounded text-[9px] font-bold hover:bg-emerald-700 flex items-center space-x-0.5"
                                             >
                                               <Camera size={10}/>
                                               <span>Photo</span>
                                             </button>
-                                            <button onClick={() => handleDeletePlayer(group.id, team.id, player.id)} className="text-red-400 hover:text-red-600">
+                                            <button onClick={() => handleDeletePlayer(group.id, team.id, player.id)} className="text-red-400 hover:text-red-600 p-1">
                                               <Trash2 size={11}/>
                                             </button>
                                           </div>
@@ -811,7 +854,7 @@ export default function AdminDashboard() {
                     </select>
                     <select value={fixtureData.teamA} onChange={(e) => setFixtureData({ ...fixtureData, teamA: e.target.value })} className="w-full px-2 py-1 border rounded-lg text-xs bg-white" disabled={!fixtureData.groupAId} required>
                       <option value="">Select Team...</option>
-                      {(currentTournament.groups || []).find((g) => g.id === fixtureData.groupAId)?.teams?.map((tm) => (<option key={tm.id} value={tm.name}>{tm.name}</option>))}
+                      {(currentTournament.groups || []).find((g) => g.id === fixtureData.groupAId)?.teams.map((tm) => (<option key={tm.id} value={tm.name}>{tm.name}</option>))}
                     </select>
                   </div>
 
@@ -823,7 +866,7 @@ export default function AdminDashboard() {
                     </select>
                     <select value={fixtureData.teamB} onChange={(e) => setFixtureData({ ...fixtureData, teamB: e.target.value })} className="w-full px-2 py-1 border rounded-lg text-xs bg-white" disabled={!fixtureData.groupBId} required>
                       <option value="">Select Team...</option>
-                      {(currentTournament.groups || []).find((g) => g.id === fixtureData.groupBId)?.teams?.map((tm) => (<option key={tm.id} value={tm.name}>{tm.name}</option>))}
+                      {(currentTournament.groups || []).find((g) => g.id === fixtureData.groupBId)?.teams.map((tm) => (<option key={tm.id} value={tm.name}>{tm.name}</option>))}
                     </select>
                   </div>
 
@@ -881,7 +924,7 @@ export default function AdminDashboard() {
                               <input type="text" value={editMatchData.teamB} onChange={(e) => setEditMatchData({ ...editMatchData, teamB: e.target.value })} className="w-full px-2 py-1 border rounded text-xs font-bold"/>
                             </div>
                           </div>
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             <div>
                               <label className="block text-[9px] font-bold text-slate-500">DATE</label>
                               <input type="date" value={editMatchData.date} onChange={(e) => setEditMatchData({ ...editMatchData, date: e.target.value })} className="w-full px-2 py-1 border rounded text-xs"/>
@@ -907,7 +950,7 @@ export default function AdminDashboard() {
                       ) : (
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <div>
-                            <div className="flex items-center space-x-2">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                               <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-black">{match.stage || "League"}</span>
                               <span className="font-bold text-slate-900 text-xs sm:text-sm">{match.teamA}</span>
                               <span className="text-[10px] text-slate-400 font-bold">VS</span>
@@ -1160,37 +1203,6 @@ function LiveScoringConsole({ match, sport, onClose }) {
     });
   };
 
-  // Cricket Scoring Handlers
-  const handleCricketUpdate = async (teamSide, runDelta, wicketDelta = 0, overDelta = 0.1) => {
-    let currentRuns = parseInt(teamSide === "A" ? (match.scoreA || 0) : (match.scoreB || 0), 10) || 0;
-    let currentWickets = parseInt(teamSide === "A" ? (match.wicketsA || 0) : (match.wicketsB || 0), 10) || 0;
-    let currentOvers = parseFloat(teamSide === "A" ? (match.oversA || "0.0") : (match.oversB || "0.0")) || 0.0;
-
-    currentRuns = Math.max(0, currentRuns + runDelta);
-    currentWickets = Math.min(10, Math.max(0, currentWickets + wicketDelta));
-    
-    // Simple over increment formatting
-    if (overDelta !== 0) {
-      let balls = Math.round((currentOvers % 1) * 10) + Math.round(overDelta * 10);
-      let fullOvers = Math.floor(currentOvers);
-      if (balls >= 6) {
-        fullOvers += Math.floor(balls / 6);
-        balls = balls % 6;
-      }
-      currentOvers = parseFloat(`${fullOvers}.${balls}`);
-    }
-
-    const updates = teamSide === "A" 
-      ? { scoreA: `${currentRuns}`, wicketsA: `${currentWickets}`, oversA: `${currentOvers.toFixed(1)}` }
-      : { scoreB: `${currentRuns}`, wicketsB: `${currentWickets}`, oversB: `${currentOvers.toFixed(1)}` };
-
-    await updateDoc(doc(db, "matches", match.id), {
-      status: "LIVE",
-      ...updates,
-      result: `${match.teamA} ${match.scoreA || 0}/${match.wicketsA || 0} (${match.oversA || 0} ov) vs ${match.teamB} ${match.scoreB || 0}/${match.wicketsB || 0} (${match.oversB || 0} ov)`
-    });
-  };
-
   const handleToggleCompleteSet = async (idx) => {
     let setCompleted = [...(match.setCompleted || [false, false, false])];
     setCompleted[idx] = !setCompleted[idx];
@@ -1231,18 +1243,18 @@ function LiveScoringConsole({ match, sport, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-2xs flex items-center justify-center p-3 z-50">
+    <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-2xs flex items-center justify-center p-3 z-50">
       <div className="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] flex flex-col shadow-2xl border overflow-hidden">
-        <div className="bg-slate-900 text-white p-3.5 flex items-center justify-between">
-          <div>
-            <h3 className="font-bold text-xs text-white">{match.teamA} vs {match.teamB} ({sport})</h3>
-            <p className="text-[10px] text-slate-400">Match Concluding & Live Scoring Console</p>
+        <div className="bg-slate-900 text-white p-3.5 flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="font-bold text-xs text-white truncate">{match.teamA} vs {match.teamB} ({sport})</h3>
+            <p className="text-[10px] text-slate-400">Match Concluding & Set Scoring Console</p>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 shrink-0">
             <button onClick={toggleLiveStatus} className={`px-2 py-1 rounded-lg text-[9px] font-black ${match.status === "LIVE" ? "bg-red-500 text-white animate-pulse" : "bg-slate-700 text-slate-200"}`}>
               {match.status === "LIVE" ? "LIVE NOW" : "START LIVE"}
             </button>
-            <button onClick={onClose} className="text-slate-400 hover:text-white"><X size={18}/></button>
+            <button onClick={onClose} className="text-slate-400 hover:text-white p-1"><X size={18}/></button>
           </div>
         </div>
 
@@ -1253,7 +1265,7 @@ function LiveScoringConsole({ match, sport, onClose }) {
                 src={getEmbedUrl(match.videoUrl)} 
                 title="Live Stream" 
                 className="w-full h-full border-0" 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
                 allowFullScreen
               ></iframe>
             </div>
@@ -1327,43 +1339,6 @@ function LiveScoringConsole({ match, sport, onClose }) {
             </div>
           )}
 
-          {sport === 'Cricket' && (
-            <div className="space-y-3 bg-slate-50 p-3 rounded-xl border">
-              <h4 className="text-xs font-black uppercase text-slate-800">Cricket Live Score Console</h4>
-              <div className="grid grid-cols-2 gap-3">
-                {/* Team A Box */}
-                <div className="bg-white p-2.5 rounded-lg border space-y-2">
-                  <div className="text-center">
-                    <p className="text-xs font-bold text-slate-700 truncate">{match.teamA}</p>
-                    <p className="text-xl font-black text-emerald-700">{match.scoreA || 0}/{match.wicketsA || 0}</p>
-                    <p className="text-[10px] text-slate-500">Overs: {match.oversA || "0.0"}</p>
-                  </div>
-                  <div className="grid grid-cols-4 gap-1">
-                    <button onClick={() => handleCricketUpdate("A", 1, 0, 0.1)} className="bg-slate-900 text-white py-1 rounded text-[10px] font-bold">+1</button>
-                    <button onClick={() => handleCricketUpdate("A", 4, 0, 0.1)} className="bg-emerald-600 text-white py-1 rounded text-[10px] font-bold">4</button>
-                    <button onClick={() => handleCricketUpdate("A", 6, 0, 0.1)} className="bg-emerald-700 text-white py-1 rounded text-[10px] font-bold">6</button>
-                    <button onClick={() => handleCricketUpdate("A", 0, 1, 0.1)} className="bg-red-600 text-white py-1 rounded text-[10px] font-bold">W</button>
-                  </div>
-                </div>
-
-                {/* Team B Box */}
-                <div className="bg-white p-2.5 rounded-lg border space-y-2">
-                  <div className="text-center">
-                    <p className="text-xs font-bold text-slate-700 truncate">{match.teamB}</p>
-                    <p className="text-xl font-black text-indigo-700">{match.scoreB || 0}/{match.wicketsB || 0}</p>
-                    <p className="text-[10px] text-slate-500">Overs: {match.oversB || "0.0"}</p>
-                  </div>
-                  <div className="grid grid-cols-4 gap-1">
-                    <button onClick={() => handleCricketUpdate("B", 1, 0, 0.1)} className="bg-slate-900 text-white py-1 rounded text-[10px] font-bold">+1</button>
-                    <button onClick={() => handleCricketUpdate("B", 4, 0, 0.1)} className="bg-emerald-600 text-white py-1 rounded text-[10px] font-bold">4</button>
-                    <button onClick={() => handleCricketUpdate("B", 6, 0, 0.1)} className="bg-emerald-700 text-white py-1 rounded text-[10px] font-bold">6</button>
-                    <button onClick={() => handleCricketUpdate("B", 0, 1, 0.1)} className="bg-red-600 text-white py-1 rounded text-[10px] font-bold">W</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           <div className="bg-emerald-50/80 border border-emerald-200 p-3 rounded-xl space-y-2">
             <h4 className="text-[11px] font-black uppercase text-emerald-900 flex items-center space-x-1">
               <Award size={14} className="text-emerald-600" />
@@ -1384,7 +1359,7 @@ function LiveScoringConsole({ match, sport, onClose }) {
 
                 <div>
                   <label className="block text-[9px] font-bold text-slate-700 mb-0.5">Result Summary</label>
-                  <input type="text" value={matchResultSummary} onChange={(e) => setMatchResultSummary(e.target.value)} placeholder="e.g. Won by 25 runs" className="w-full p-1.5 border rounded-lg text-xs bg-white outline-none" required/>
+                  <input type="text" value={matchResultSummary} onChange={(e) => setMatchResultSummary(e.target.value)} placeholder="e.g. Won by 2 sets to 1" className="w-full p-1.5 border rounded-lg text-xs bg-white outline-none" required/>
                 </div>
               </div>
 
