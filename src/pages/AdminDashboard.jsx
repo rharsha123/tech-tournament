@@ -130,6 +130,7 @@ export default function AdminDashboard() {
     const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.7);
 
     const { targetType, targetId } = cameraModal;
+    const groups = currentTournament.groups || [];
 
     try {
       if (targetType === "tournament") {
@@ -137,7 +138,7 @@ export default function AdminDashboard() {
           photos: arrayUnion(compressedDataUrl)
         });
       } else if (targetType === "group") {
-        const updatedGroups = currentTournament.groups.map(g => {
+        const updatedGroups = groups.map(g => {
           if (g.id === targetId) {
             return { ...g, photos: [...(g.photos || []), compressedDataUrl] };
           }
@@ -145,7 +146,7 @@ export default function AdminDashboard() {
         });
         await updateDoc(doc(db, "tournaments", currentTournament.id), { groups: updatedGroups });
       } else if (targetType === "team") {
-        const updatedGroups = currentTournament.groups.map(g => ({
+        const updatedGroups = groups.map(g => ({
           ...g,
           teams: (g.teams || []).map(tm => {
             if (tm.id === targetId) {
@@ -156,7 +157,7 @@ export default function AdminDashboard() {
         }));
         await updateDoc(doc(db, "tournaments", currentTournament.id), { groups: updatedGroups });
       } else if (targetType === "player") {
-        const updatedGroups = currentTournament.groups.map(g => ({
+        const updatedGroups = groups.map(g => ({
           ...g,
           teams: (g.teams || []).map(tm => ({
             ...tm,
@@ -186,7 +187,7 @@ export default function AdminDashboard() {
 
   const handleDeleteGroupPhoto = async (groupId, photoUrl) => {
     if (!window.confirm("Delete this photo?")) return;
-    const updatedGroups = currentTournament.groups.map(g => {
+    const updatedGroups = (currentTournament.groups || []).map(g => {
       if (g.id === groupId) {
         return { ...g, photos: (g.photos || []).filter(p => p !== photoUrl) };
       }
@@ -197,7 +198,7 @@ export default function AdminDashboard() {
 
   const handleDeleteTeamPhoto = async (teamId, photoUrl) => {
     if (!window.confirm("Delete this photo?")) return;
-    const updatedGroups = currentTournament.groups.map(g => ({
+    const updatedGroups = (currentTournament.groups || []).map(g => ({
       ...g,
       teams: (g.teams || []).map(tm => {
         if (tm.id === teamId) {
@@ -211,7 +212,7 @@ export default function AdminDashboard() {
 
   const handleDeletePlayerPhoto = async (playerId, photoUrl) => {
     if (!window.confirm("Delete this photo?")) return;
-    const updatedGroups = currentTournament.groups.map(g => ({
+    const updatedGroups = (currentTournament.groups || []).map(g => ({
       ...g,
       teams: (g.teams || []).map(tm => ({
         ...tm,
@@ -290,7 +291,7 @@ export default function AdminDashboard() {
   const handleAddTeam = async (e) => {
     e.preventDefault();
     if (!selectedGroupId || !newTeamName.trim() || !currentTournament) return;
-    const updatedGroups = currentTournament.groups.map((g) => {
+    const updatedGroups = (currentTournament.groups || []).map((g) => {
       if (g.id === selectedGroupId) {
         return {
           ...g,
@@ -313,7 +314,7 @@ export default function AdminDashboard() {
   const handleAddPlayer = async (e) => {
     e.preventDefault();
     if (!selectedTeamId || !newPlayerName.trim() || !currentTournament) return;
-    const updatedGroups = currentTournament.groups.map((g) => ({
+    const updatedGroups = (currentTournament.groups || []).map((g) => ({
       ...g,
       teams: (g.teams || []).map((tm) => {
         if (tm.id === selectedTeamId) {
@@ -328,15 +329,15 @@ export default function AdminDashboard() {
 
   const handleDeleteGroup = async (groupId) => {
     if (!window.confirm("Delete this group and all its teams?")) return;
-    const updatedGroups = currentTournament.groups.filter(g => g.id !== groupId);
+    const updatedGroups = (currentTournament.groups || []).filter(g => g.id !== groupId);
     await updateDoc(doc(db, "tournaments", currentTournament.id), { groups: updatedGroups });
   };
 
   const handleDeleteTeam = async (groupId, teamId) => {
     if (!window.confirm("Delete this team?")) return;
-    const updatedGroups = currentTournament.groups.map(g => {
+    const updatedGroups = (currentTournament.groups || []).map(g => {
       if (g.id === groupId) {
-        return { ...g, teams: g.teams.filter(t => t.id !== teamId) };
+        return { ...g, teams: (g.teams || []).filter(t => t.id !== teamId) };
       }
       return g;
     });
@@ -345,13 +346,13 @@ export default function AdminDashboard() {
 
   const handleDeletePlayer = async (groupId, teamId, playerId) => {
     if (!window.confirm("Delete this player?")) return;
-    const updatedGroups = currentTournament.groups.map(g => {
+    const updatedGroups = (currentTournament.groups || []).map(g => {
       if (g.id === groupId) {
         return {
           ...g,
-          teams: g.teams.map(tm => {
+          teams: (g.teams || []).map(tm => {
             if (tm.id === teamId) {
-              return { ...tm, players: tm.players.filter(p => p.id !== playerId) };
+              return { ...tm, players: (tm.players || []).filter(p => p.id !== playerId) };
             }
             return tm;
           })
@@ -367,10 +368,10 @@ export default function AdminDashboard() {
     if (!fixtureData.teamA || !fixtureData.teamB) {
       alert("Please select both teams.");
       return;
-    }
+[O    }
 
-    const groupAObj = currentTournament.groups.find(g => g.id === fixtureData.groupAId);
-    const groupBObj = currentTournament.groups.find(g => g.id === fixtureData.groupBId);
+    const groupAObj = (currentTournament.groups || []).find(g => g.id === fixtureData.groupAId);
+    const groupBObj = (currentTournament.groups || []).find(g => g.id === fixtureData.groupBId);
 
     await addDoc(collection(db, "matches"), {
       tournamentId: currentTournament.id,
@@ -436,7 +437,6 @@ export default function AdminDashboard() {
   const qfMatches = tournamentMatches.filter(m => m.stage === "Quarter-Final");
   const sfMatches = tournamentMatches.filter(m => m.stage === "Semi-Final");
   const finalMatches = tournamentMatches.filter(m => m.stage === "Final");
-  const leagueMatches = tournamentMatches.filter(m => m.stage === "League" || !m.stage);
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-slate-100 font-sans text-slate-800">
@@ -621,7 +621,7 @@ export default function AdminDashboard() {
                             <button onClick={() => handleDeleteTournament(t.id, t.name)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={14}/></button>
                           </div>
                         </div>
-                      )}
+[I                      )}
                     </div>
                   ))}
                 </div>
@@ -811,7 +811,7 @@ export default function AdminDashboard() {
                     </select>
                     <select value={fixtureData.teamA} onChange={(e) => setFixtureData({ ...fixtureData, teamA: e.target.value })} className="w-full px-2 py-1 border rounded-lg text-xs bg-white" disabled={!fixtureData.groupAId} required>
                       <option value="">Select Team...</option>
-                      {(currentTournament.groups || []).find((g) => g.id === fixtureData.groupAId)?.teams.map((tm) => (<option key={tm.id} value={tm.name}>{tm.name}</option>))}
+                      {(currentTournament.groups || []).find((g) => g.id === fixtureData.groupAId)?.teams?.map((tm) => (<option key={tm.id} value={tm.name}>{tm.name}</option>))}
                     </select>
                   </div>
 
@@ -823,7 +823,7 @@ export default function AdminDashboard() {
                     </select>
                     <select value={fixtureData.teamB} onChange={(e) => setFixtureData({ ...fixtureData, teamB: e.target.value })} className="w-full px-2 py-1 border rounded-lg text-xs bg-white" disabled={!fixtureData.groupBId} required>
                       <option value="">Select Team...</option>
-                      {(currentTournament.groups || []).find((g) => g.id === fixtureData.groupBId)?.teams.map((tm) => (<option key={tm.id} value={tm.name}>{tm.name}</option>))}
+                      {(currentTournament.groups || []).find((g) => g.id === fixtureData.groupBId)?.teams?.map((tm) => (<option key={tm.id} value={tm.name}>{tm.name}</option>))}
                     </select>
                   </div>
 
@@ -1160,6 +1160,37 @@ function LiveScoringConsole({ match, sport, onClose }) {
     });
   };
 
+  // Cricket Scoring Handlers
+  const handleCricketUpdate = async (teamSide, runDelta, wicketDelta = 0, overDelta = 0.1) => {
+    let currentRuns = parseInt(teamSide === "A" ? (match.scoreA || 0) : (match.scoreB || 0), 10) || 0;
+    let currentWickets = parseInt(teamSide === "A" ? (match.wicketsA || 0) : (match.wicketsB || 0), 10) || 0;
+    let currentOvers = parseFloat(teamSide === "A" ? (match.oversA || "0.0") : (match.oversB || "0.0")) || 0.0;
+
+    currentRuns = Math.max(0, currentRuns + runDelta);
+    currentWickets = Math.min(10, Math.max(0, currentWickets + wicketDelta));
+    
+    // Simple over increment formatting
+    if (overDelta !== 0) {
+      let balls = Math.round((currentOvers % 1) * 10) + Math.round(overDelta * 10);
+      let fullOvers = Math.floor(currentOvers);
+      if (balls >= 6) {
+        fullOvers += Math.floor(balls / 6);
+        balls = balls % 6;
+      }
+      currentOvers = parseFloat(`${fullOvers}.${balls}`);
+    }
+
+    const updates = teamSide === "A" 
+      ? { scoreA: `${currentRuns}`, wicketsA: `${currentWickets}`, oversA: `${currentOvers.toFixed(1)}` }
+      : { scoreB: `${currentRuns}`, wicketsB: `${currentWickets}`, oversB: `${currentOvers.toFixed(1)}` };
+
+    await updateDoc(doc(db, "matches", match.id), {
+      status: "LIVE",
+      ...updates,
+      result: `${match.teamA} ${match.scoreA || 0}/${match.wicketsA || 0} (${match.oversA || 0} ov) vs ${match.teamB} ${match.scoreB || 0}/${match.wicketsB || 0} (${match.oversB || 0} ov)`
+    });
+  };
+
   const handleToggleCompleteSet = async (idx) => {
     let setCompleted = [...(match.setCompleted || [false, false, false])];
     setCompleted[idx] = !setCompleted[idx];
@@ -1205,7 +1236,7 @@ function LiveScoringConsole({ match, sport, onClose }) {
         <div className="bg-slate-900 text-white p-3.5 flex items-center justify-between">
           <div>
             <h3 className="font-bold text-xs text-white">{match.teamA} vs {match.teamB} ({sport})</h3>
-            <p className="text-[10px] text-slate-400">Match Concluding & Set Scoring Console</p>
+            <p className="text-[10px] text-slate-400">Match Concluding & Live Scoring Console</p>
           </div>
           <div className="flex items-center space-x-2">
             <button onClick={toggleLiveStatus} className={`px-2 py-1 rounded-lg text-[9px] font-black ${match.status === "LIVE" ? "bg-red-500 text-white animate-pulse" : "bg-slate-700 text-slate-200"}`}>
@@ -1296,6 +1327,43 @@ function LiveScoringConsole({ match, sport, onClose }) {
             </div>
           )}
 
+          {sport === 'Cricket' && (
+            <div className="space-y-3 bg-slate-50 p-3 rounded-xl border">
+              <h4 className="text-xs font-black uppercase text-slate-800">Cricket Live Score Console</h4>
+              <div className="grid grid-cols-2 gap-3">
+                {/* Team A Box */}
+                <div className="bg-white p-2.5 rounded-lg border space-y-2">
+                  <div className="text-center">
+                    <p className="text-xs font-bold text-slate-700 truncate">{match.teamA}</p>
+                    <p className="text-xl font-black text-emerald-700">{match.scoreA || 0}/{match.wicketsA || 0}</p>
+                    <p className="text-[10px] text-slate-500">Overs: {match.oversA || "0.0"}</p>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1">
+                    <button onClick={() => handleCricketUpdate("A", 1, 0, 0.1)} className="bg-slate-900 text-white py-1 rounded text-[10px] font-bold">+1</button>
+                    <button onClick={() => handleCricketUpdate("A", 4, 0, 0.1)} className="bg-emerald-600 text-white py-1 rounded text-[10px] font-bold">4</button>
+                    <button onClick={() => handleCricketUpdate("A", 6, 0, 0.1)} className="bg-emerald-700 text-white py-1 rounded text-[10px] font-bold">6</button>
+                    <button onClick={() => handleCricketUpdate("A", 0, 1, 0.1)} className="bg-red-600 text-white py-1 rounded text-[10px] font-bold">W</button>
+                  </div>
+                </div>
+
+                {/* Team B Box */}
+                <div className="bg-white p-2.5 rounded-lg border space-y-2">
+                  <div className="text-center">
+                    <p className="text-xs font-bold text-slate-700 truncate">{match.teamB}</p>
+                    <p className="text-xl font-black text-indigo-700">{match.scoreB || 0}/{match.wicketsB || 0}</p>
+                    <p className="text-[10px] text-slate-500">Overs: {match.oversB || "0.0"}</p>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1">
+                    <button onClick={() => handleCricketUpdate("B", 1, 0, 0.1)} className="bg-slate-900 text-white py-1 rounded text-[10px] font-bold">+1</button>
+                    <button onClick={() => handleCricketUpdate("B", 4, 0, 0.1)} className="bg-emerald-600 text-white py-1 rounded text-[10px] font-bold">4</button>
+                    <button onClick={() => handleCricketUpdate("B", 6, 0, 0.1)} className="bg-emerald-700 text-white py-1 rounded text-[10px] font-bold">6</button>
+                    <button onClick={() => handleCricketUpdate("B", 0, 1, 0.1)} className="bg-red-600 text-white py-1 rounded text-[10px] font-bold">W</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-emerald-50/80 border border-emerald-200 p-3 rounded-xl space-y-2">
             <h4 className="text-[11px] font-black uppercase text-emerald-900 flex items-center space-x-1">
               <Award size={14} className="text-emerald-600" />
@@ -1316,7 +1384,7 @@ function LiveScoringConsole({ match, sport, onClose }) {
 
                 <div>
                   <label className="block text-[9px] font-bold text-slate-700 mb-0.5">Result Summary</label>
-                  <input type="text" value={matchResultSummary} onChange={(e) => setMatchResultSummary(e.target.value)} placeholder="e.g. Won by 2 sets to 1" className="w-full p-1.5 border rounded-lg text-xs bg-white outline-none" required/>
+                  <input type="text" value={matchResultSummary} onChange={(e) => setMatchResultSummary(e.target.value)} placeholder="e.g. Won by 25 runs" className="w-full p-1.5 border rounded-lg text-xs bg-white outline-none" required/>
                 </div>
               </div>
 

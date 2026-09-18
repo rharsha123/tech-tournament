@@ -238,18 +238,24 @@ export default function PublicView({ onNavigateAdmin, onLogout }) {
                             <span className="text-[9px] bg-indigo-900 text-indigo-200 px-1.5 py-0.2 rounded font-bold">{m.stage || "League"}</span>
                             <h3 className="font-extrabold text-xs text-slate-300 truncate">{m.teamA}</h3>
                           </div>
-                          <p className="text-2xl font-black text-amber-400 mt-1 tracking-tight">
-                            {activeTourn?.sport === 'Badminton' ? `${m.scoreA || 0} Sets` : (m.scoreA || 0)}
+                          <p className="text-xl font-black text-amber-400 mt-1 tracking-tight">
+                            {activeTourn?.sport === 'Badminton' ? `${m.scoreA || 0} Sets` : `${m.scoreA || 0}/${m.wicketsA || 0}`}
                           </p>
+                          {activeTourn?.sport === 'Cricket' && (
+                            <span className="text-[9px] text-slate-400">({m.oversA || 0} ov)</span>
+                          )}
                         </div>
 
                         <span className="text-xs font-black text-slate-500 px-3 uppercase tracking-widest">VS</span>
 
                         <div className="flex-1 text-right truncate">
                           <h3 className="font-extrabold text-xs text-slate-300 truncate">{m.teamB}</h3>
-                          <p className="text-2xl font-black text-amber-400 mt-1 tracking-tight">
-                            {activeTourn?.sport === 'Badminton' ? `${m.scoreB || 0} Sets` : (m.scoreB || 0)}
+                          <p className="text-xl font-black text-amber-400 mt-1 tracking-tight">
+                            {activeTourn?.sport === 'Badminton' ? `${m.scoreB || 0} Sets` : `${m.scoreB || 0}/${m.wicketsB || 0}`}
                           </p>
+                          {activeTourn?.sport === 'Cricket' && (
+                            <span className="text-[9px] text-slate-400">({m.oversB || 0} ov)</span>
+                          )}
                         </div>
                       </div>
 
@@ -262,15 +268,9 @@ export default function PublicView({ onNavigateAdmin, onLogout }) {
                           {infoA.players.flatMap(pl => pl.photos || []).map((p, idx) => (
                             <img key={`pa-${idx}`} src={p} alt="Player" className="w-4 h-4 rounded-full object-cover border border-emerald-500/50" title="Player Photo" />
                           ))}
-                          {infoA.photos.length === 0 && infoA.players.flatMap(pl => pl.photos || []).length === 0 && (
-                            <span className="text-slate-500 italic">No media</span>
-                          )}
                         </div>
 
                         <div className="flex items-center space-x-1 justify-end overflow-x-auto max-w-[45%]">
-                          {infoB.photos.length === 0 && infoB.players.flatMap(pl => pl.photos || []).length === 0 && (
-                            <span className="text-slate-500 italic">No media</span>
-                          )}
                           {infoB.photos.map((p, idx) => (
                             <img key={`tb-${idx}`} src={p} alt="Team" className="w-4 h-4 rounded object-cover border border-slate-600" title="Team Photo" />
                           ))}
@@ -296,9 +296,10 @@ export default function PublicView({ onNavigateAdmin, onLogout }) {
                           </div>
                         </div>
                       )}
+
                       <div className="pt-2 border-t border-slate-700/60 flex items-center justify-between text-xs">
                          <span className="text-slate-400 font-medium">{m.date} at {m.time}</span>
-                         <span className="font-black text-sm text-emerald-400 tracking-wide">{m.result || "Scheduled"}</span>
+                         <span className="font-black text-xs text-emerald-400 tracking-wide truncate max-w-[55%]">{m.result || "Scheduled"}</span>
                       </div>
                     </div>
                   );
