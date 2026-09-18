@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { AuthProvider, useAuth } from "./AuthContext";
+import Navbar from "./components/Navbar"; // Matches the Navbar component import properly
 import PublicView from "./pages/PublicView";
 import AdminDashboard from "./pages/AdminDashboard";
 import Login from "./pages/Login";
@@ -9,6 +10,7 @@ function usePath() {
 
   useEffect(() => {
     const onPopState = () => setPath(window.location.pathname);
+    window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
