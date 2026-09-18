@@ -621,7 +621,7 @@ export default function AdminDashboard() {
                             <button onClick={() => handleDeleteTournament(t.id, t.name)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={14}/></button>
                           </div>
                         </div>
-[I                      )}
+                      )}
                     </div>
                   ))}
                 </div>
