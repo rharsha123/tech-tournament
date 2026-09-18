@@ -368,7 +368,7 @@ export default function AdminDashboard() {
     if (!fixtureData.teamA || !fixtureData.teamB) {
       alert("Please select both teams.");
       return;
-[O    }
+   }
 
     const groupAObj = (currentTournament.groups || []).find(g => g.id === fixtureData.groupAId);
     const groupBObj = (currentTournament.groups || []).find(g => g.id === fixtureData.groupBId);
