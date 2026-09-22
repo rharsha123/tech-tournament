@@ -1101,112 +1101,117 @@ export default function AdminDashboard({ onLogout }) {
     </div>
   );
 }
-
 function LiveScoringConsole({ match, sport, onClose }) {
   const [selectedWinner, setSelectedWinner] = useState(match.winner || "");
   const [matchResultSummary, setMatchResultSummary] = useState(match.result || "");
+
+  // Cricket State (CricHeroes Style)
+  const [battingTeam, setBattingTeam] = useState(match.battingTeam || match.teamA);
+  const [striker, setStriker] = useState(match.striker || "");
+  const [nonStriker, setNonStriker] = useState(match.nonStriker || "");
+  const [bowler, setBowler] = useState(match.bowler || "");
+  
+  // Modal states for wickets/extras popup
+  const [wicketModalOpen, setWicketModalOpen] = useState(false);
+  const [wicketData, setWicketData] = useState({ batsman: "", dismissalType: "Bowled", fielder: "", bowleBy: "" });
 
   const toggleLiveStatus = async () => {
     const newStatus = match.status === "LIVE" ? "SCHEDULED" : "LIVE";
     await updateDoc(doc(db, "matches", match.id), { status: newStatus });
   };
 
-  const handleSetActiveSet = async (setNum) => {
-    await updateDoc(doc(db, "matches", match.id), {
-      currentSet: setNum,
-      commentary: arrayUnion({
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        text: `Admin initiated Set ${setNum}.`,
-        type: "TEXT"
-      })
-    });
-  };
+  // Cricket Ball Scoring Handler
+  const handleCricketBall = async (runs, extraType = null) => {
+    let currentScoreA = parseInt(match.scoreA || 0);
+    let wicketsA = parseInt(match.wicketsA || 0);
+    let oversA = parseFloat(match.oversA || "0.0");
 
-  const handleBadmintonPoint = async (side) => {
-    const activeSetIdx = (match.currentSet || 1) - 1;
-    let scoresA = [...(match.setScoresA || [0, 0, 0])];
-    let scoresB = [...(match.setScoresB || [0, 0, 0])];
-    let setWinners = [...(match.setWinners || ["", "", ""])];
-    let setCompleted = [...(match.setCompleted || [false, false, false])];
+    let currentScoreB = parseInt(match.scoreB || 0);
+    let wicketsB = parseInt(match.wicketsB || 0);
+    let oversB = parseFloat(match.oversB || "0.0");
 
-    if (setCompleted[activeSetIdx]) {
-      alert(`Set ${match.currentSet} is completed and locked.`);
-      return;
+    const isTeamA = battingTeam === match.teamA;
+    let score = isTeamA ? currentScoreA : currentScoreB;
+    let wickets = isTeamA ? wicketsA : wicketsB;
+    let overs = isTeamA ? oversA : oversB;
+
+    // Calculate legal balls & overs (e.g. 1.5 + 0.1 = 1.6 -> 2.0)
+    let ballCount = Math.round((overs % 1) * 10);
+    let overCount = Math.floor(overs);
+
+    let runsScored = runs;
+    let isLegalBall = true;
+
+    if (extraType === "Wide" || extraType === "NoBall") {
+      runsScored += 1; // Penalty run
+      isLegalBall = false; // Doesn't count as legal delivery
     }
 
-    if (side === "A") scoresA[activeSetIdx] = (scoresA[activeSetIdx] || 0) + 1;
-    if (side === "B") scoresB[activeSetIdx] = (scoresB[activeSetIdx] || 0) + 1;
-
-    const currentScoreA = scoresA[activeSetIdx];
-    const currentScoreB = scoresB[activeSetIdx];
-
-    let isSetWon = false;
-    let setWinnerTeam = "";
-
-    if ((currentScoreA >= 21 && currentScoreA - currentScoreB >= 2) || currentScoreA === 30) {
-      isSetWon = true;
-      setWinnerTeam = match.teamA;
-    } else if ((currentScoreB >= 21 && currentScoreB - currentScoreA >= 2) || currentScoreB === 30) {
-      isSetWon = true;
-      setWinnerTeam = match.teamB;
+    if (isTeamA) {
+      currentScoreA += runsScored;
+    } else {
+      currentScoreB += runsScored;
     }
 
-    if (isSetWon) {
-      setWinners[activeSetIdx] = setWinnerTeam;
-      setCompleted[activeSetIdx] = true;
+    if (isLegalBall) {
+      ballCount += 1;
+      if (ballCount >= 6) {
+        overCount += 1;
+        ballCount = 0;
+      }
     }
 
-    const setWinnerSummary = setWinners.map((w, idx) => w ? `Set ${idx + 1}: ${w}` : "").filter(Boolean).join(" | ");
-    const setsWonA = setWinners.filter(w => w === match.teamA).length;
-    const setsWonB = setWinners.filter(w => w === match.teamB).length;
+    const updatedOvers = parseFloat(`${overCount}.${ballCount}`);
+    const formattedOversStr = updatedOvers.toFixed(1);
 
-    let autoWinner = "";
-    if (setsWonA === 2) autoWinner = match.teamA;
-    if (setsWonB === 2) autoWinner = match.teamB;
+    if (isTeamA) {
+      oversA = formattedOversStr;
+    } else {
+      oversB = formattedOversStr;
+    }
 
-    if (autoWinner) setSelectedWinner(autoWinner);
-
+    let commentaryText = `${battingTeam} scored ${runs} run(s)${extraType ? ` (${extraType})` : ''}`;
+    
     await updateDoc(doc(db, "matches", match.id), {
       status: "LIVE",
-      setScoresA: scoresA,
-      setScoresB: scoresB,
-      setWinners: setWinners,
-      setCompleted: setCompleted,
-      scoreA: `${setsWonA}`,
-      scoreB: `${setsWonB}`,
-      winner: autoWinner || match.winner,
-      result: setWinnerSummary || `Set ${match.currentSet}: ${currentScoreA}-${currentScoreB}`,
+      scoreA: `${currentScoreA}`,
+      scoreB: `${currentScoreB}`,
+      wicketsA: `${wicketsA}`,
+      wicketsB: `${wicketsB}`,
+      oversA: `${oversA}`,
+      oversB: `${oversB}`,
+      battingTeam: battingTeam,
+      striker: striker,
+      nonStriker: nonStriker,
+      bowler: bowler,
       commentary: arrayUnion({
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        text: isSetWon ? `${setWinnerTeam} WON SET ${activeSetIdx + 1} (${currentScoreA}-${currentScoreB})!` : `Point to ${side === "A" ? match.teamA : match.teamB} (${currentScoreA}-${currentScoreB})`,
-        type: isSetWon ? "HIGHLIGHT" : "POINT"
+        text: commentaryText,
+        type: "BALL"
       })
     });
   };
 
-  const handleBadmintonMinusPoint = async (side) => {
-    const activeSetIdx = (match.currentSet || 1) - 1;
-    let scoresA = [...(match.setScoresA || [0, 0, 0])];
-    let scoresB = [...(match.setScoresB || [0, 0, 0])];
+  const handleWicketFall = async (e) => {
+    e.preventDefault();
+    let wicketsA = parseInt(match.wicketsA || 0);
+    let wicketsB = parseInt(match.wicketsB || 0);
+    const isTeamA = battingTeam === match.teamA;
 
-    if (side === "A" && scoresA[activeSetIdx] > 0) scoresA[activeSetIdx] -= 1;
-    if (side === "B" && scoresB[activeSetIdx] > 0) scoresB[activeSetIdx] -= 1;
+    if (isTeamA) wicketsA += 1;
+    else wicketsB += 1;
 
     await updateDoc(doc(db, "matches", match.id), {
-      setScoresA: scoresA,
-      setScoresB: scoresB,
+      wicketsA: `${wicketsA}`,
+      wicketsB: `${wicketsB}`,
       commentary: arrayUnion({
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        text: `Admin corrected score (-1 point to ${side === "A" ? match.teamA : match.teamB}). Current: ${scoresA[activeSetIdx]}-${scoresB[activeSetIdx]}`,
-        type: "TEXT"
+        text: `WICKET! ${wicketData.batsman || 'Batsman'} out (${wicketData.dismissalType})`,
+        type: "WICKET"
       })
     });
-  };
-
-  const handleToggleCompleteSet = async (idx) => {
-    let setCompleted = [...(match.setCompleted || [false, false, false])];
-    setCompleted[idx] = !setCompleted[idx];
-    await updateDoc(doc(db, "matches", match.id), { setCompleted });
+    setWicketModalOpen(false);
+    setWicketData({ batsman: "", dismissalType: "Bowled", fielder: "", bowleBy: "" });
   };
 
   const handleCompleteMatch = async (e) => {
@@ -1244,11 +1249,11 @@ function LiveScoringConsole({ match, sport, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-slate-900/75 backdrop-blur-2xs flex items-center justify-center p-3 z-50">
-      <div className="bg-white rounded-2xl max-w-xl w-full max-h-[90vh] flex flex-col shadow-2xl border overflow-hidden">
+      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl border overflow-hidden">
         <div className="bg-slate-900 text-white p-3.5 flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0">
             <h3 className="font-bold text-xs text-white truncate">{match.teamA} vs {match.teamB} ({sport})</h3>
-            <p className="text-[10px] text-slate-400">Match Concluding & Set Scoring Console</p>
+            <p className="text-[10px] text-slate-400">CricHeroes Style Live Scoring Console</p>
           </div>
           <div className="flex items-center space-x-2 shrink-0">
             <button onClick={toggleLiveStatus} className={`px-2 py-1 rounded-lg text-[9px] font-black ${match.status === "LIVE" ? "bg-red-500 text-white animate-pulse" : "bg-slate-700 text-slate-200"}`}>
@@ -1261,84 +1266,98 @@ function LiveScoringConsole({ match, sport, onClose }) {
         <div className="p-3.5 sm:p-4 overflow-y-auto flex-1 space-y-3.5">
           {match.videoUrl && (
             <div className="bg-slate-950 rounded-xl overflow-hidden aspect-video border shadow-inner">
-              <iframe 
-                src={getEmbedUrl(match.videoUrl)} 
-                title="Live Stream" 
-                className="w-full h-full border-0" 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-                allowFullScreen
-              ></iframe>
+              <iframe src={getEmbedUrl(match.videoUrl)} title="Live Stream" className="w-full h-full border-0" allowFullScreen></iframe>
             </div>
           )}
 
-          {sport === 'Badminton' && (
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between bg-slate-50 p-2 rounded-xl border gap-2">
-                <span className="text-[11px] font-bold text-slate-700">Active Set:</span>
-                <div className="flex items-center space-x-1">
-                  {[1, 2, 3].map((setNum) => (
-                    <button
-                      key={setNum}
-                      onClick={() => handleSetActiveSet(setNum)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${
-                        (match.currentSet || 1) === setNum ? "bg-emerald-600 text-white shadow-xs" : "bg-white border text-slate-700 hover:bg-slate-100"
-                      }`}
-                    >
-                      Set {setNum} {(match.setCompleted?.[setNum - 1]) ? "✔" : ""}
+          {sport === 'Cricket' && (
+            <div className="space-y-3 bg-slate-50 p-3 rounded-xl border">
+              {/* CURRENT INNINGS & BATSMEN SELECTION */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-500 uppercase">Batting Team</label>
+                  <select value={battingTeam} onChange={(e) => setBattingTeam(e.target.value)} className="w-full p-1.5 border rounded-lg text-xs font-bold bg-white">
+                    <option value={match.teamA}>{match.teamA}</option>
+                    <option value={match.teamB}>{match.teamB}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-500 uppercase">Striker</label>
+                  <input type="text" value={striker} onChange={(e) => setStriker(e.target.value)} placeholder="Batsman 1" className="w-full p-1.5 border rounded-lg text-xs bg-white"/>
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-500 uppercase">Bowler</label>
+                  <input type="text" value={bowler} onChange={(e) => setBowler(e.target.value)} placeholder="Bowler Name" className="w-full p-1.5 border rounded-lg text-xs bg-white"/>
+                </div>
+              </div>
+
+              {/* LIVE SCOREBOARD CARD */}
+              <div className="bg-slate-900 text-white p-3 rounded-xl flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase font-bold">{battingTeam}</p>
+                  <h4 className="text-2xl font-black text-amber-400">
+                    {battingTeam === match.teamA ? match.scoreA || 0 : match.scoreB || 0}/
+                    {battingTeam === match.teamA ? match.wicketsA || 0 : match.wicketsB || 0}
+                  </h4>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] text-slate-400 uppercase font-bold">Overs</p>
+                  <h4 className="text-xl font-bold text-white">
+                    {battingTeam === match.teamA ? match.oversA || "0.0" : match.oversB || "0.0"} Ov
+                  </h4>
+                </div>
+              </div>
+
+              {/* CRICHEROES BUTTON PAD */}
+              <div className="space-y-2">
+                <p className="text-[10px] font-black uppercase text-slate-600">Run Scoring Buttons:</p>
+                <div className="grid grid-cols-4 sm:grid-cols-8 gap-1.5">
+                  {[0, 1, 2, 3, 4, 6].map((r) => (
+                    <button key={r} onClick={() => handleCricketBall(r)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2 rounded-xl text-xs shadow-xs">
+                      {r}
                     </button>
                   ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                {[0, 1, 2].map((idx) => {
-                  const isCompleted = match.setCompleted?.[idx];
-                  const winner = match.setWinners?.[idx];
-                  return (
-                    <div key={idx} className={`p-2 rounded-xl border text-center relative ${isCompleted ? "bg-slate-100 border-slate-300" : "bg-emerald-50/50 border-emerald-200"}`}>
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[9px] font-bold text-slate-700">Set {idx + 1}</span>
-                        <button onClick={() => handleToggleCompleteSet(idx)} className="text-[9px] font-semibold text-slate-500 underline">
-                          {isCompleted ? "Unlock" : "Lock"}
-                        </button>
-                      </div>
-
-                      <p className="text-sm font-black text-slate-900">
-                        {(match.setScoresA || [0])[idx] || 0} - {(match.setScoresB || [0])[idx] || 0}
-                      </p>
-
-                      {winner && (
-                        <span className="text-[8px] bg-emerald-600 text-white font-bold px-1.5 py-0.2 rounded mt-0.5 inline-block">
-                          {winner}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <div className="space-y-1">
-                  <button onClick={() => handleBadmintonPoint("A")} className="w-full bg-emerald-600 text-white py-2 rounded-xl font-bold text-xs hover:bg-emerald-700 transition">
-                    +1 Point ({match.teamA})
-                  </button>
-                  <button onClick={() => handleBadmintonMinusPoint("A")} className="w-full bg-slate-200 text-slate-700 py-1 rounded-lg font-bold text-[10px] hover:bg-slate-300 flex items-center justify-center space-x-1">
-                    <Minus size={10}/> <span>Correct (-1)</span>
-                  </button>
+                  <button onClick={() => handleCricketBall(0, "Wide")} className="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2 rounded-xl text-xs">WD</button>
+                  <button onClick={() => handleCricketBall(0, "NoBall")} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-xl text-xs">NB</button>
                 </div>
 
-                <div className="space-y-1">
-                  <button onClick={() => handleBadmintonPoint("B")} className="w-full bg-indigo-600 text-white py-2 rounded-xl font-bold text-xs hover:bg-indigo-700 transition">
-                    +1 Point ({match.teamB})
-                  </button>
-                  <button onClick={() => handleBadmintonMinusPoint("B")} className="w-full bg-slate-200 text-slate-700 py-1 rounded-lg font-bold text-[10px] hover:bg-slate-300 flex items-center justify-center space-x-1">
-                    <Minus size={10}/> <span>Correct (-1)</span>
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setWicketModalOpen(true)} className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded-xl font-black text-xs">
+                    🔴 WICKET!
                   </button>
                 </div>
               </div>
             </div>
           )}
 
+          {/* WICKET MODAL */}
+          {wicketModalOpen && (
+            <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3">
+              <form onSubmit={handleWicketFall} className="bg-white p-4 rounded-xl max-w-xs w-full space-y-3 shadow-2xl">
+                <h4 className="font-bold text-xs text-red-600 uppercase">Fall of Wicket Details</h4>
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-600 uppercase">Dismissed Batsman</label>
+                  <input type="text" value={wicketData.batsman} onChange={(e) => setWicketData({ ...wicketData, batsman: e.target.value })} placeholder="Batsman Name" className="w-full p-1.5 border rounded text-xs" required/>
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-600 uppercase">Dismissal Type</label>
+                  <select value={wicketData.dismissalType} onChange={(e) => setWicketData({ ...wicketData, dismissalType: e.target.value })} className="w-full p-1.5 border rounded text-xs bg-white">
+                    <option value="Bowled">Bowled</option>
+                    <option value="Caught">Caught</option>
+                    <option value="Run Out">Run Out</option>
+                    <option value="LBW">LBW</option>
+                    <option value="Stumped">Stumped</option>
+                  </select>
+                </div>
+                <div className="flex justify-end space-x-2 pt-2">
+                  <button type="button" onClick={() => setWicketModalOpen(false)} className="bg-slate-200 px-3 py-1 rounded text-xs">Cancel</button>
+                  <button type="submit" className="bg-red-600 text-white px-3 py-1 rounded text-xs font-bold">Confirm Wicket</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* OFFICIAL WINNER DECLARATION */}
           <div className="bg-emerald-50/80 border border-emerald-200 p-3 rounded-xl space-y-2">
             <h4 className="text-[11px] font-black uppercase text-emerald-900 flex items-center space-x-1">
               <Award size={14} className="text-emerald-600" />
@@ -1359,7 +1378,7 @@ function LiveScoringConsole({ match, sport, onClose }) {
 
                 <div>
                   <label className="block text-[9px] font-bold text-slate-700 mb-0.5">Result Summary</label>
-                  <input type="text" value={matchResultSummary} onChange={(e) => setMatchResultSummary(e.target.value)} placeholder="e.g. Won by 2 sets to 1" className="w-full p-1.5 border rounded-lg text-xs bg-white outline-none" required/>
+                  <input type="text" value={matchResultSummary} onChange={(e) => setMatchResultSummary(e.target.value)} placeholder="e.g. Won by 4 wickets" className="w-full p-1.5 border rounded-lg text-xs bg-white outline-none" required/>
                 </div>
               </div>
 

@@ -227,14 +227,19 @@ export default function PublicView({ onLogout }) {
                         </div>
                       )}
 
+                      {/* SCOREBOARD CARD */}
                       <div className="flex items-center justify-between bg-slate-900 p-3 rounded-lg border border-slate-700 shadow-md">
                         <div className="flex-1 truncate">
                           <div className="flex items-center space-x-1">
                             <span className="text-[9px] bg-indigo-900 text-indigo-200 px-1.5 py-0.2 rounded font-bold">{m.stage || "League"}</span>
                             <h3 className="font-extrabold text-xs text-slate-300 truncate">{m.teamA}</h3>
                           </div>
-                          <p className="text-2xl font-black text-amber-400 mt-1 tracking-tight">
-                            {activeTourn?.sport === 'Badminton' ? `${m.scoreA || 0} Sets` : (m.scoreA || 0)}
+                          <p className="text-xl font-black text-amber-400 mt-1 tracking-tight">
+                            {activeTourn?.sport === 'Cricket' 
+                              ? `${m.scoreA || 0}/${m.wicketsA || 0} (${m.oversA || '0.0'} Ov)` 
+                              : activeTourn?.sport === 'Badminton' 
+                              ? `${m.scoreA || 0} Sets` 
+                              : (m.scoreA || 0)}
                           </p>
                         </div>
 
@@ -242,11 +247,25 @@ export default function PublicView({ onLogout }) {
 
                         <div className="flex-1 text-right truncate">
                           <h3 className="font-extrabold text-xs text-slate-300 truncate">{m.teamB}</h3>
-                          <p className="text-2xl font-black text-amber-400 mt-1 tracking-tight">
-                            {activeTourn?.sport === 'Badminton' ? `${m.scoreB || 0} Sets` : (m.scoreB || 0)}
+                          <p className="text-xl font-black text-amber-400 mt-1 tracking-tight">
+                            {activeTourn?.sport === 'Cricket' 
+                              ? `${m.scoreB || 0}/${m.wicketsB || 0} (${m.oversB || '0.0'} Ov)` 
+                              : activeTourn?.sport === 'Badminton' 
+                              ? `${m.scoreB || 0} Sets` 
+                              : (m.scoreB || 0)}
                           </p>
                         </div>
                       </div>
+
+                      {/* CRICHEROES LIVE BALL COMMENTARY TICKER */}
+                      {activeTourn?.sport === 'Cricket' && m.commentary && m.commentary.length > 0 && (
+                        <div className="bg-slate-950 p-2 rounded-lg border border-slate-700 flex items-center space-x-2 overflow-hidden">
+                          <span className="bg-red-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded uppercase shrink-0">Recent</span>
+                          <p className="text-[11px] text-emerald-400 font-bold truncate">
+                            {m.commentary[m.commentary.length - 1]?.text}
+                          </p>
+                        </div>
+                      )}
 
                       <div className="bg-slate-900/60 p-1.5 rounded-lg border border-slate-700/50 flex items-center justify-between text-[10px]">
                         <div className="flex items-center space-x-1 overflow-x-auto max-w-[45%]">
@@ -291,6 +310,7 @@ export default function PublicView({ onLogout }) {
                           </div>
                         </div>
                       )}
+                      
                       <div className="pt-2 border-t border-slate-700/60 flex items-center justify-between text-xs">
                          <span className="text-slate-400 font-medium">{m.date} at {m.time}</span>
                          <span className="font-black text-sm text-emerald-400 tracking-wide">{m.result || "Scheduled"}</span>
