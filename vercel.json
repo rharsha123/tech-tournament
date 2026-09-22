@@ -1,9 +1,7 @@
 {
-  "cleanUrls": true,
-  "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/((?!assets|static|favicon.ico).*)",
+      "source": "/((?!.*\\.).*)",
       "destination": "/index.html"
     }
   ]
