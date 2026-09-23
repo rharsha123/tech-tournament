@@ -1,0 +1,9 @@
+{
+  "appId": "com.techtournament.app",
+  "appName": "Tech Tournament",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "backgroundColor": "#0F1A15"
+}

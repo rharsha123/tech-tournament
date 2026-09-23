@@ -1,0 +1,13 @@
+{
+  "name": "Tech Tournament",
+  "short_name": "TechTourney",
+  "description": "Multi-sport tournament management — cricket, football, badminton.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0F1A15",
+  "theme_color": "#0F1A15",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/icons.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

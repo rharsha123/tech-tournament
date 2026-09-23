@@ -1,76 +1,69 @@
 import React, { useState } from "react";
 import { Trophy, Menu, X } from "lucide-react";
 
+const LINKS = [
+  { href: "/", label: "Home" },
+  { href: "#matches", label: "Matches" },
+  { href: "#standings", label: "Standings" },
+  { href: "#stats", label: "Stats & Awards" },
+];
+
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <nav className="bg-snb-dark text-white border-b-2 border-snb-accent shadow-md sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-        {/* Brand Logo */}
-        <a href="/" className="flex items-center space-x-2 sm:space-x-3 group min-w-0">
-          <div className="bg-snb-accent p-1.5 sm:p-2 rounded-lg text-snb-dark group-hover:scale-105 transition shrink-0">
-            <Trophy className="w-5 h-5 sm:w-6 sm:h-6" />
+    <nav
+      className="sb-hairline"
+      style={{ position: "sticky", top: 0, zIndex: 50, background: "var(--ink)" }}
+    >
+      <div style={{ maxWidth: 1120, margin: "0 auto", padding: "10px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <a href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none", minWidth: 0 }}>
+          <div style={{ background: "var(--signal)", color: "var(--signal-ink)", padding: 8, borderRadius: "var(--radius-sm)", display: "flex" }}>
+            <Trophy size={20} />
           </div>
-          <div className="min-w-0">
-            <span className="text-base sm:text-xl font-extrabold tracking-tight text-white block truncate">Tech Tournaments</span>
-            <span className="text-[9px] sm:text-[10px] text-snb-accent font-semibold tracking-widest uppercase block -mt-1">Sports Portal</span>
+          <div style={{ minWidth: 0 }}>
+            <div className="sb-display" style={{ fontSize: 19, color: "var(--chalk)", lineHeight: 1 }}>TECH TOURNAMENT</div>
+            <div style={{ fontSize: 10, letterSpacing: "0.08em", color: "var(--chalk-dim)", marginTop: 2 }}>Cricket · Football · Badminton</div>
           </div>
         </a>
 
-        {/* Desktop Links */}
-        <div className="hidden md:flex items-center space-x-6 text-sm font-semibold">
-          <a href="/" className="hover:text-snb-accent transition-colors">Home</a>
-          <a href="#matches" className="hover:text-snb-accent transition-colors">Matches</a>
-          <a href="#scores" className="hover:text-snb-accent transition-colors">Scores</a>
-          <a href="#teams" className="hover:text-snb-accent transition-colors">Teams</a>
+        <div style={{ display: "none", gap: 28, fontSize: 14, fontWeight: 600 }} className="sb-nav-desktop">
+          {LINKS.map((l) => (
+            <a key={l.label} href={l.href} style={{ color: "var(--chalk-dim)", textDecoration: "none" }}>{l.label}</a>
+          ))}
         </div>
 
-        {/* Mobile Toggle Button */}
-        <div className="md:hidden flex items-center">
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="text-white hover:text-snb-accent focus:outline-none p-2 rounded-md transition-colors"
-            aria-label="Toggle Menu"
-          >
-            {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        </div>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          aria-label="Toggle Menu"
+          className="sb-nav-toggle"
+          style={{ background: "transparent", border: "none", color: "var(--chalk)", padding: 8, cursor: "pointer" }}
+        >
+          {isOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
       </div>
 
-      {/* Mobile Menu Dropdown */}
       {isOpen && (
-        <div className="md:hidden bg-snb-dark border-t border-slate-800 px-4 pt-3 pb-5 space-y-2 shadow-inner">
-          <a 
-            href="/" 
-            onClick={() => setIsOpen(false)}
-            className="block px-3 py-2 rounded-md text-base font-medium hover:bg-slate-800 hover:text-snb-accent transition-colors"
-          >
-            Home
-          </a>
-          <a 
-            href="#matches" 
-            onClick={() => setIsOpen(false)}
-            className="block px-3 py-2 rounded-md text-base font-medium hover:bg-slate-800 hover:text-snb-accent transition-colors"
-          >
-            Matches
-          </a>
-          <a 
-            href="#scores" 
-            onClick={() => setIsOpen(false)}
-            className="block px-3 py-2 rounded-md text-base font-medium hover:bg-slate-800 hover:text-snb-accent transition-colors"
-          >
-            Scores
-          </a>
-          <a 
-            href="#teams" 
-            onClick={() => setIsOpen(false)}
-            className="block px-3 py-2 rounded-md text-base font-medium hover:bg-slate-800 hover:text-snb-accent transition-colors"
-          >
-            Teams
-          </a>
+        <div className="sb-hairline" style={{ padding: "8px 20px 16px" }}>
+          {LINKS.map((l) => (
+            <a
+              key={l.label}
+              href={l.href}
+              onClick={() => setIsOpen(false)}
+              style={{ display: "block", padding: "10px 4px", color: "var(--chalk)", textDecoration: "none", fontWeight: 600 }}
+            >
+              {l.label}
+            </a>
+          ))}
         </div>
       )}
+
+      <style>{`
+        @media (min-width: 768px) {
+          .sb-nav-desktop { display: flex !important; }
+          .sb-nav-toggle { display: none !important; }
+        }
+      `}</style>
     </nav>
   );
 }
